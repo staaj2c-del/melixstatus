@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Melix Status — All Systems Operational</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="dot" id="nav-dot"></span>
+    Melix Status
+  </div>
+  <div class="nav-links">
+    <a href="/" class="active">Status</a>
+    <a href="/admin/">Admin</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-icon">⚡</div>
+  <h1>System Status</h1>
+  <div class="status-badge operational" id="status-badge">
+    <span class="status-dot"></span>
+    <span id="overall">Loading...</span>
+  </div>
+</section>
+
+<div class="container">
+  <div class="section-title">Services</div>
+  <div id="services"><p class="loading">Loading services...</p></div>
+
+  <div class="section-title">Dispatch Log</div>
+  <div class="event-list" id="events"><p class="loading">Loading events...</p></div>
+</div>
+
+<div class="ticker-wrap">
+  <div class="ticker" id="ticker">
+    <span>Loading status updates...</span>
+  </div>
+</div>
+
+<footer class="footer">
+  Melix Status &copy; 2026 — Powered by Melix Systems
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
+

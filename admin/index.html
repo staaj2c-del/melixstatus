@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Melix Status — Admin Panel</title>
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="dot"></span>
+    Melix Admin
+  </div>
+  <div class="nav-links">
+    <a href="/">Status</a>
+    <a href="/admin/" class="active">Admin</a>
+  </div>
+</nav>
+
+<!-- Login -->
+<div id="login-section">
+  <div class="login-box">
+    <h2>Admin Login</h2>
+    <div class="error" id="login-error"></div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="login-user" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-pass" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dash-section" class="hidden">
+  <div class="container">
+    <div class="flex-between mt-16 mb-16">
+      <div>
+        <span style="color:var(--muted)">Logged in as:</span>
+        <strong id="user-display"></strong>
+      </div>
+      <button class="btn btn-outline btn-sm" id="logout-btn">Logout</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="tab-services">Services</button>
+      <button class="tab" data-tab="tab-users">Users</button>
+      <button class="tab" data-tab="tab-events">Events</button>
+    </div>
+
+    <!-- Services Tab -->
+    <div class="tab-content active" id="tab-services">
+      <div class="dash-card full">
+        <div class="flex-between mb-16">
+          <h3 style="margin-bottom:0">All Services</h3>
+          <button class="btn btn-cyan btn-sm" id="add-svc-btn">+ New Service</button>
+        </div>
+        <div id="svc-list"><p class="loading">Loading...</p></div>
+      </div>
+    </div>
+
+    <!-- Users Tab -->
+    <div class="tab-content" id="tab-users">
+      <div class="dash-card full">
+        <div class="flex-between mb-16">
+          <h3 style="margin-bottom:0">Manage Users</h3>
+          <button class="btn btn-cyan btn-sm" id="add-user-btn">+ New User</button>
+        </div>
+        <div id="user-list"><p class="loading">Loading...</p></div>
+      </div>
+    </div>
+
+    <!-- Events Tab -->
+    <div class="tab-content" id="tab-events">
+      <div class="dash-card full">
+        <h3>Post Event</h3>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:20px">
+          <div class="form-group" style="margin-bottom:0;width:120px">
+            <label>Type</label>
+            <select id="event-type">
+              <option value="INFO">INFO</option>
+              <option value="UPDATE">UPDATE</option>
+              <option value="OUTAGE">OUTAGE</option>
+              <option value="SYS">SYS</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;flex:1">
+            <label>Message</label>
+            <input type="text" id="event-msg" placeholder="Describe the event...">
+          </div>
+          <button class="btn btn-primary btn-sm" id="post-event-btn">Post</button>
+        </div>
+        <h3 style="margin-top:24px">Recent Events</h3>
+        <div id="event-list"><p class="loading">Loading...</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modal-add-svc">
+  <div class="modal">
+    <h3>New Service</h3>
+    <div class="form-group">
+      <label>Service Name</label>
+      <input type="text" id="svc-name" placeholder="e.g. API Gateway">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="svc-desc" placeholder="Short description">
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select id="svc-status">
+        <option value="operational">Operational</option>
+        <option value="degraded">Degraded</option>
+        <option value="outage">Outage</option>
+        <option value="maintenance">Maintenance</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline modal-close">Cancel</button>
+      <button class="btn btn-primary" id="svc-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal">
+    <h3>New User</h3>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="user-name" placeholder="Username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="user-pass" placeholder="Password">
+    </div>
+    <div class="form-group">
+      <label>Role</label>
+      <select id="user-role">
+        <option value="editor">Editor</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline modal-close">Cancel</button>
+      <button class="btn btn-primary" id="user-save">Create</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/config.js"></script>
+<script src="../assets/store.js"></script>
+<script src="../assets/admin.js"></script>
+</body>
+</html>
+
