@@ -1,98 +1,223 @@
-(async function () {
-  const overallEl = document.getElementById('overall');
-  const badgeEl = document.getElementById('status-badge');
-  const dotEl = document.getElementById('nav-dot');
-  const servicesEl = document.getElementById('services');
-  const eventsEl = document.getElementById('events');
-  const tickerEl = document.getElementById('ticker');
-
-  function setStatus(status, label) {
-    overallEl.textContent = label;
-    badgeEl.textContent = label;
-    badgeEl.className = `status-badge ${status}`;
-    dotEl.className = `dot ${status}`;
-    document.title = `Melix Status — ${label}`;
-  }
-
-  function statusClass(s) {
-    if (s === 'operational') return 'operational';
-    if (s === 'degraded') return 'degraded';
-    if (s === 'outage') return 'outage';
-    if (s === 'maintenance') return 'maintenance';
-    return '';
-  }
-
-  function statusLabel(s) {
-    if (s === 'operational') return 'Operational';
-    if (s === 'degraded') return 'Degraded';
-    if (s === 'outage') return 'Outage';
-    if (s === 'maintenance') return 'Maintenance';
-    return s;
-  }
-
-  function timeAgo(dateStr) {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diff = Math.floor((now - d) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
-  }
-
-  try {
-    const [status, services, events] = await Promise.all([
-      Store.getOverallStatus(),
-      Store.getServices(),
-      Store.getEvents()
-    ]);
-
-    setStatus(status.status, status.label);
-
-    // Services
-    if (services.length === 0) {
-      servicesEl.innerHTML = '<p class="loading">No services configured yet.</p>';
-    } else {
-      servicesEl.innerHTML = services.map(s => `
-        <div class="service-card">
-          <div class="service-info">
-            <h3>${esc(s.name)}</h3>
-            <p>${esc(s.description || '')}</p>
-          </div>
-          <span class="service-status ${statusClass(s.status)}">${statusLabel(s.status)}</span>
-        </div>
-      `).join('');
-    }
-
-    // Events
-    if (events.length === 0) {
-      eventsEl.innerHTML = '<p class="loading">No recent events.</p>';
-    } else {
-      eventsEl.innerHTML = events.map(e => `
-        <div class="event-item">
-          <span class="event-type ${e.type}">${esc(e.type)}</span>
-          <div>
-            <div class="event-message">${esc(e.message)}</div>
-            <div class="event-time">${timeAgo(e.createdAt)}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Ticker
-    if (events.length > 0) {
-      const tickerText = events.map(e => `[${e.type}] ${e.message}`).join('  ');
-      tickerEl.innerHTML = `<span>${esc(tickerText)}</span><span>${esc(tickerText)}</span>`;
-    }
-  } catch (err) {
-    console.error('Failed to load status:', err);
-    servicesEl.innerHTML = '<p class="loading" style="color:var(--pink)">Failed to load services. Check API connection.</p>';
-  }
-})();
-
 function esc(str) {
+  if (!str) return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
+
+function formatStatus(s) {
+  const map = {
+    operational: 'Operational',
+    degraded: 'Degraded Performance',
+    outage: 'Major Outage',
+    maintenance: 'Under Maintenance'
+  };
+  return map[s] || s;
+}
+
+function formatIncidentStatus(s) {
+  return (s || '').replace(/_/g, ' ');
+}
+
+function formatDayLabel(isoOrDate) {
+  const d = new Date(isoOrDate);
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
+}
+
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
+function dayKey(iso) {
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+function statusClass(overall) {
+  return `is-${overall || 'unknown'}`;
+}
+
+async function loadOverallStatus() {
+  try {
+    const data = await Store.getOverallStatus();
+    const banner = document.getElementById('statusBanner');
+    const label = document.getElementById('statusLabel');
+    banner.className = `status-banner ${statusClass(data.status)}`;
+    label.textContent = data.label;
+    document.title = `Melix Status — ${data.label}`;
+  } catch (_) {
+    document.getElementById('statusLabel').textContent = 'Unable to load status';
+    document.getElementById('statusBanner').className = 'status-banner is-unknown';
+  }
+}
+
+function barLabel(day) {
+  const date = formatDayLabel(day.date + 'T00:00:00.000Z');
+  const status = formatStatus(day.status === 'no_data' ? 'operational' : day.status);
+  if (day.status === 'no_data') return `${date}\nNo data`;
+  return `${date}\n${status}`;
+}
+
+function renderUptimeBars(history) {
+  return `
+    <div class="uptime-bars" role="img" aria-label="90 day uptime history">
+      ${(history || []).map(day => `
+        <div class="uptime-bar ${day.status}"
+             data-tip="${esc(barLabel(day))}"
+             title="${esc(barLabel(day).replace('\n', ' — '))}"></div>
+      `).join('')}
+    </div>
+    <div class="uptime-meta">
+      <span>90 days ago</span>
+      <span class="line"></span>
+      <span class="uptime-pct">${Number(history && history.length ? (history.reduce((a, d) => a + (d.uptimePercent || 100), 0) / history.length) : 100).toFixed(2)} % uptime</span>
+      <span class="line"></span>
+      <span>Today</span>
+    </div>
+  `;
+}
+
+async function loadServices() {
+  const list = document.getElementById('servicesList');
+  try {
+    const services = await Store.getServicesWithUptime();
+    if (!services.length) {
+      list.innerHTML = '<div class="empty-state">No services configured yet.</div>';
+      return;
+    }
+    list.innerHTML = services.map(s => `
+      <div class="service-row">
+        <div class="service-row-top">
+          <span class="service-name">
+            ${esc(s.name)}
+            ${s.description ? `<span class="service-desc">· ${esc(s.description)}</span>` : ''}
+          </span>
+          <span class="service-status ${s.status}">${formatStatus(s.status)}</span>
+        </div>
+        ${renderUptimeBars(s.history)}
+      </div>
+    `).join('');
+
+    // Prefer computed uptime from API when present
+    list.querySelectorAll('.service-row').forEach((row, i) => {
+      const pct = services[i].uptime;
+      if (pct != null) {
+        const el = row.querySelector('.uptime-pct');
+        if (el) el.textContent = `${Number(pct).toFixed(2)} % uptime`;
+      }
+    });
+  } catch (_) {
+    list.innerHTML = '<div class="empty-state">Failed to load services. Check API connection.</div>';
+  }
+}
+
+function renderIncidentCard(inc) {
+  const updates = [...(inc.updates || [])].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+  const services = (inc.serviceNames || []).join(', ');
+  return `
+    <article class="incident-card">
+      <h3 class="incident-title">${esc(inc.title)}</h3>
+      <div class="incident-meta">
+        <span class="incident-impact ${esc(inc.impact)}">${esc(inc.impact || 'minor')}</span>
+        ${services ? esc(services) + ' · ' : ''}
+        ${formatDateTime(inc.startedAt || inc.createdAt)}
+        ${inc.resolvedAt ? ` · Resolved ${formatDateTime(inc.resolvedAt)}` : ''}
+      </div>
+      <ul class="incident-updates">
+        ${updates.map(u => `
+          <li class="incident-update ${esc(u.status)}">
+            <span class="update-status">${esc(formatIncidentStatus(u.status))}</span>
+            <span class="update-time">— ${formatDateTime(u.createdAt)}</span>
+            <p class="update-message">${esc(u.message)}</p>
+          </li>
+        `).join('')}
+      </ul>
+    </article>
+  `;
+}
+
+function groupByDay(incidents) {
+  const map = new Map();
+  for (const inc of incidents) {
+    const key = dayKey(inc.startedAt || inc.createdAt);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(inc);
+  }
+  return map;
+}
+
+async function loadIncidents() {
+  const activeEl = document.getElementById('activeIncidents');
+  const activeSection = document.getElementById('activeIncidentsSection');
+  const pastEl = document.getElementById('pastIncidents');
+
+  try {
+    const all = await Store.getIncidents('?limit=50');
+    const active = all.filter(i => !['resolved', 'completed'].includes(i.status));
+    const past = all.filter(i => ['resolved', 'completed'].includes(i.status));
+
+    if (active.length) {
+      activeSection.hidden = false;
+      activeEl.innerHTML = active.map(renderIncidentCard).join('');
+    } else {
+      activeSection.hidden = true;
+      activeEl.innerHTML = '';
+    }
+
+    if (!past.length) {
+      pastEl.innerHTML = '<div class="empty-state">No incidents reported in the last 90 days.</div>';
+      return;
+    }
+
+    const grouped = groupByDay(past);
+    const days = [...grouped.keys()].sort((a, b) => b.localeCompare(a));
+    pastEl.innerHTML = days.map(day => `
+      <div class="incident-day">
+        <div class="incident-day-label">${formatDayLabel(day + 'T00:00:00.000Z')}</div>
+        ${grouped.get(day).map(renderIncidentCard).join('')}
+      </div>
+    `).join('');
+  } catch (_) {
+    pastEl.innerHTML = '<div class="empty-state">Failed to load incidents.</div>';
+  }
+}
+
+// Tooltip for uptime bars
+(function setupTooltip() {
+  const tip = document.getElementById('barTooltip');
+  if (!tip) return;
+  document.addEventListener('mousemove', (e) => {
+    const bar = e.target.closest('.uptime-bar');
+    if (!bar) {
+      tip.hidden = true;
+      return;
+    }
+    const text = bar.getAttribute('data-tip') || '';
+    tip.textContent = text;
+    tip.hidden = false;
+    tip.style.left = e.clientX + 'px';
+    tip.style.top = e.clientY + 'px';
+  });
+  document.addEventListener('mouseleave', () => { tip.hidden = true; });
+})();
+
+async function refresh() {
+  await Promise.all([loadOverallStatus(), loadServices(), loadIncidents()]);
+}
+
+refresh();
+setInterval(refresh, 30000);
 

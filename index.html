@@ -3,48 +3,89 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Melix Status — All Systems Operational</title>
+<title>Melix Status</title>
+<meta name="description" content="Real-time status and uptime for Melix services.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 
-<nav class="nav">
-  <div class="nav-brand">
-    <span class="dot" id="nav-dot"></span>
-    Melix Status
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a href="./" class="brand">
+      <svg class="brand-mark" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M20 20 L100 130 L180 20 C185 90 175 150 140 175 L140 90 L100 145 L60 90 L60 175 C25 150 15 90 20 20 Z" fill="#F72466"/>
+      </svg>
+      <span class="brand-text">Melix <span class="brand-muted">Status</span></span>
+    </a>
+    <nav class="topnav">
+      <a href="./" class="active">Status</a>
+      <a href="admin/">Admin</a>
+      <a href="https://xohxo21.github.io/MelixBotWebsite/index.html" target="_blank" rel="noopener">Website</a>
+    </nav>
   </div>
-  <div class="nav-links">
-    <a href="/" class="active">Status</a>
-    <a href="/admin/">Admin</a>
+</header>
+
+<main class="page">
+  <div class="wrap">
+    <div class="status-banner" id="statusBanner">
+      <div class="status-banner-inner">
+        <span class="status-banner-icon" id="statusIcon" aria-hidden="true"></span>
+        <h1 id="statusLabel">Loading status…</h1>
+      </div>
+    </div>
+
+    <section class="panel" id="activeIncidentsSection" hidden>
+      <div class="panel-head">
+        <h2>Active Incidents</h2>
+      </div>
+      <div id="activeIncidents" class="incident-list"></div>
+    </section>
+
+    <section class="panel services-panel">
+      <div class="panel-head panel-head-row">
+        <h2>Services</h2>
+        <p class="panel-meta">Uptime over the past 90 days.</p>
+      </div>
+      <div id="servicesList" class="services-list">
+        <div class="service-row skeleton">
+          <div class="service-row-top">
+            <span class="service-name">Loading…</span>
+            <span class="service-status">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Past Incidents</h2>
+      </div>
+      <div id="pastIncidents" class="incident-list">
+        <div class="empty-state">Loading incidents…</div>
+      </div>
+    </section>
   </div>
-</nav>
+</main>
 
-<section class="hero">
-  <div class="hero-icon">⚡</div>
-  <h1>System Status</h1>
-  <div class="status-badge operational" id="status-badge">
-    <span class="status-dot"></span>
-    <span id="overall">Loading...</span>
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M20 20 L100 130 L180 20 C185 90 175 150 140 175 L140 90 L100 145 L60 90 L60 175 C25 150 15 90 20 20 Z" fill="#F72466"/>
+      </svg>
+      <span>Melix Status</span>
+    </div>
+    <p class="footer-copy">© 2026 Melix. Service availability and historical uptime.</p>
+    <div class="footer-links">
+      <a href="admin/">Admin panel</a>
+      <a href="https://xohxo21.github.io/MelixBotWebsite/index.html" target="_blank" rel="noopener">Main website</a>
+    </div>
   </div>
-</section>
-
-<div class="container">
-  <div class="section-title">Services</div>
-  <div id="services"><p class="loading">Loading services...</p></div>
-
-  <div class="section-title">Dispatch Log</div>
-  <div class="event-list" id="events"><p class="loading">Loading events...</p></div>
-</div>
-
-<div class="ticker-wrap">
-  <div class="ticker" id="ticker">
-    <span>Loading status updates...</span>
-  </div>
-</div>
-
-<footer class="footer">
-  Melix Status &copy; 2026 — Powered by Melix Systems
 </footer>
+
+<div class="tooltip" id="barTooltip" hidden></div>
 
 <script src="assets/config.js"></script>
 <script src="assets/store.js"></script>

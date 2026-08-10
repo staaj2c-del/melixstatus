@@ -3,157 +3,279 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Melix Status — Admin Panel</title>
+<title>Admin Panel — Melix Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/styles.css">
 </head>
 <body>
 
-<nav class="nav">
-  <div class="nav-brand">
-    <span class="dot"></span>
-    Melix Admin
-  </div>
-  <div class="nav-links">
-    <a href="/">Status</a>
-    <a href="/admin/" class="active">Admin</a>
-  </div>
-</nav>
-
-<!-- Login -->
-<div id="login-section">
-  <div class="login-box">
-    <h2>Admin Login</h2>
-    <div class="error" id="login-error"></div>
-    <form id="login-form">
+<div id="login-section" class="admin-body">
+  <div class="login-card">
+    <a href="../" class="brand">
+      <svg class="brand-mark" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M20 20 L100 130 L180 20 C185 90 175 150 140 175 L140 90 L100 145 L60 90 L60 175 C25 150 15 90 20 20 Z" fill="#F72466"/>
+      </svg>
+      <span class="brand-text">Melix <span class="brand-muted">Status</span></span>
+    </a>
+    <h2>Admin Panel</h2>
+    <p class="subtitle">Sign in to manage services, incidents, and users</p>
+    <div class="form-error" id="loginError">Invalid credentials</div>
+    <form id="loginForm">
       <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="login-user" required>
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username" autocomplete="username" required>
       </div>
       <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="login-pass" required>
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter password" autocomplete="current-password" required>
       </div>
-      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+      <button type="submit" class="btn btn-primary btn-full" id="loginBtn">Sign In</button>
     </form>
   </div>
 </div>
 
-<!-- Dashboard -->
 <div id="dash-section" class="hidden">
-  <div class="container">
-    <div class="flex-between mt-16 mb-16">
-      <div>
-        <span style="color:var(--muted)">Logged in as:</span>
-        <strong id="user-display"></strong>
-      </div>
-      <button class="btn btn-outline btn-sm" id="logout-btn">Logout</button>
+  <nav class="dashboard-nav">
+    <div class="dashboard-nav-left">
+      <a href="../" class="brand">
+        <svg class="brand-mark" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M20 20 L100 130 L180 20 C185 90 175 150 140 175 L140 90 L100 145 L60 90 L60 175 C25 150 15 90 20 20 Z" fill="#F72466"/>
+        </svg>
+        <span class="brand-text">Melix</span>
+      </a>
+      <a href="#" data-section="services" class="nav-tab active">Services</a>
+      <a href="#" data-section="incidents" class="nav-tab">Incidents</a>
+      <a href="#" data-section="users" class="nav-tab" id="usersTab" style="display:none;">Users</a>
+      <a href="#" data-section="log" class="nav-tab">Event Log</a>
     </div>
-
-    <div class="tabs">
-      <button class="tab active" data-tab="tab-services">Services</button>
-      <button class="tab" data-tab="tab-users">Users</button>
-      <button class="tab" data-tab="tab-events">Events</button>
+    <div class="dashboard-nav-right">
+      <span class="user-info">Signed in as <span id="currentUser">...</span></span>
+      <a href="../" class="btn btn-secondary btn-sm">View Status</a>
+      <button class="btn btn-secondary btn-sm" id="logoutBtn">Logout</button>
     </div>
+  </nav>
 
-    <!-- Services Tab -->
-    <div class="tab-content active" id="tab-services">
-      <div class="dash-card full">
-        <div class="flex-between mb-16">
-          <h3 style="margin-bottom:0">All Services</h3>
-          <button class="btn btn-cyan btn-sm" id="add-svc-btn">+ New Service</button>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="dashboard-content">
+    <div class="dashboard-section active" id="section-services">
+      <div class="panel-card">
+        <h3>Manage Services <span class="count" id="svcCount"></span></h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Last Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="servicesTableBody"></tbody>
+          </table>
         </div>
-        <div id="svc-list"><p class="loading">Loading...</p></div>
+        <div style="margin-top:18px;">
+          <button class="btn btn-primary btn-sm" id="addServiceBtn">+ Add Service</button>
+        </div>
       </div>
     </div>
 
-    <!-- Users Tab -->
-    <div class="tab-content" id="tab-users">
-      <div class="dash-card full">
-        <div class="flex-between mb-16">
-          <h3 style="margin-bottom:0">Manage Users</h3>
-          <button class="btn btn-cyan btn-sm" id="add-user-btn">+ New User</button>
+    <div class="dashboard-section" id="section-incidents">
+      <div class="panel-card">
+        <h3>Incidents <span class="count" id="incCount"></span></h3>
+        <div style="margin-bottom:16px;">
+          <button class="btn btn-primary btn-sm" id="addIncidentBtn">+ Report Incident</button>
         </div>
-        <div id="user-list"><p class="loading">Loading...</p></div>
+        <div id="incidentsAdminList"></div>
       </div>
     </div>
 
-    <!-- Events Tab -->
-    <div class="tab-content" id="tab-events">
-      <div class="dash-card full">
-        <h3>Post Event</h3>
-        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:20px">
-          <div class="form-group" style="margin-bottom:0;width:120px">
-            <label>Type</label>
-            <select id="event-type">
-              <option value="INFO">INFO</option>
-              <option value="UPDATE">UPDATE</option>
-              <option value="OUTAGE">OUTAGE</option>
-              <option value="SYS">SYS</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0;flex:1">
-            <label>Message</label>
-            <input type="text" id="event-msg" placeholder="Describe the event...">
-          </div>
-          <button class="btn btn-primary btn-sm" id="post-event-btn">Post</button>
+    <div class="dashboard-section" id="section-users">
+      <div class="panel-card">
+        <h3>Manage Users <span class="count" id="userCount"></span></h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
         </div>
-        <h3 style="margin-top:24px">Recent Events</h3>
-        <div id="event-list"><p class="loading">Loading...</p></div>
+        <div style="margin-top:18px;">
+          <button class="btn btn-primary btn-sm" id="addUserBtn">+ Add User</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-section" id="section-log">
+      <div class="panel-card">
+        <h3>Event Log</h3>
+        <div style="margin-bottom:16px; display:flex; gap:10px; flex-wrap:wrap;">
+          <input type="text" id="eventMessage" placeholder="Post an update to the status log..." style="flex:1; min-width:200px; background:#fff; border:1px solid var(--line-strong); border-radius:6px; padding:10px 14px; color:var(--text); font-size:13px;">
+          <button class="btn btn-cyan btn-sm" id="postEventBtn">Post Update</button>
+        </div>
+        <div class="events-list" id="adminEventsList"></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modals -->
-<div class="modal-overlay" id="modal-add-svc">
+<!-- Service Modal -->
+<div class="modal-overlay" id="serviceModal">
   <div class="modal">
-    <h3>New Service</h3>
-    <div class="form-group">
-      <label>Service Name</label>
-      <input type="text" id="svc-name" placeholder="e.g. API Gateway">
-    </div>
-    <div class="form-group">
-      <label>Description</label>
-      <input type="text" id="svc-desc" placeholder="Short description">
-    </div>
-    <div class="form-group">
-      <label>Status</label>
-      <select id="svc-status">
-        <option value="operational">Operational</option>
-        <option value="degraded">Degraded</option>
-        <option value="outage">Outage</option>
-        <option value="maintenance">Maintenance</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline modal-close">Cancel</button>
-      <button class="btn btn-primary" id="svc-save">Save</button>
-    </div>
+    <h3 id="serviceModalTitle">Add Service</h3>
+    <form id="serviceForm">
+      <input type="hidden" id="svcId">
+      <div class="form-group">
+        <label for="svcName">Service Name</label>
+        <input type="text" id="svcName" placeholder="e.g. Melix Bot" required>
+      </div>
+      <div class="form-group">
+        <label for="svcDesc">Description</label>
+        <input type="text" id="svcDesc" placeholder="Brief description of the service">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cancelServiceBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-add-user">
+<!-- Incident Modal -->
+<div class="modal-overlay" id="incidentModal">
   <div class="modal">
-    <h3>New User</h3>
-    <div class="form-group">
-      <label>Username</label>
-      <input type="text" id="user-name" placeholder="Username">
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="user-pass" placeholder="Password">
-    </div>
-    <div class="form-group">
-      <label>Role</label>
-      <select id="user-role">
-        <option value="editor">Editor</option>
-        <option value="admin">Admin</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline modal-close">Cancel</button>
-      <button class="btn btn-primary" id="user-save">Create</button>
-    </div>
+    <h3 id="incidentModalTitle">Report Incident</h3>
+    <form id="incidentForm">
+      <div class="form-group">
+        <label for="incTitle">Title</label>
+        <input type="text" id="incTitle" placeholder="e.g. Elevated API latency" required>
+      </div>
+      <div class="form-group">
+        <label for="incImpact">Impact</label>
+        <select id="incImpact">
+          <option value="minor">Minor</option>
+          <option value="major">Major</option>
+          <option value="critical">Critical</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="incStatus">Status</label>
+        <select id="incStatus">
+          <option value="investigating">Investigating</option>
+          <option value="identified">Identified</option>
+          <option value="monitoring">Monitoring</option>
+          <option value="in_progress">In Progress</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="resolved">Resolved</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="incMessage">Initial update</label>
+        <textarea id="incMessage" rows="3" placeholder="What is happening?"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="incServices">Affected services (optional)</label>
+        <select id="incServices" multiple size="4" style="min-height:90px;"></select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cancelIncidentBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Incident Update Modal -->
+<div class="modal-overlay" id="incidentUpdateModal">
+  <div class="modal">
+    <h3>Post Incident Update</h3>
+    <form id="incidentUpdateForm">
+      <input type="hidden" id="incUpdateId">
+      <div class="form-group">
+        <label>Incident: <span id="incUpdateTitle" style="color:var(--text);font-weight:600;"></span></label>
+      </div>
+      <div class="form-group">
+        <label for="incUpdateStatus">Status</label>
+        <select id="incUpdateStatus">
+          <option value="investigating">Investigating</option>
+          <option value="identified">Identified</option>
+          <option value="monitoring">Monitoring</option>
+          <option value="in_progress">In Progress</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="resolved">Resolved</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="incUpdateMessage">Message</label>
+        <textarea id="incUpdateMessage" rows="3" required placeholder="Update details..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cancelIncidentUpdateBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Post Update</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <h3 id="userModalTitle">Add User</h3>
+    <form id="userForm">
+      <input type="hidden" id="userId">
+      <div class="form-group">
+        <label for="newUsername">Username</label>
+        <input type="text" id="newUsername" placeholder="Enter username" required>
+      </div>
+      <div class="form-group">
+        <label for="newPassword">Password</label>
+        <input type="password" id="newPassword" placeholder="Enter password" required>
+      </div>
+      <div class="form-group">
+        <label for="newRole">Role</label>
+        <select id="newRole">
+          <option value="editor">Editor</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cancelUserBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal">
+    <h3>Change Password</h3>
+    <form id="passwordForm">
+      <input type="hidden" id="pwUserId">
+      <div class="form-group">
+        <label>User: <span id="pwUsername" style="color:var(--text);"></span></label>
+      </div>
+      <div class="form-group">
+        <label for="newUserPassword">New Password</label>
+        <input type="password" id="newUserPassword" placeholder="Enter new password" required>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cancelPasswordBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
+      </div>
+    </form>
   </div>
 </div>
 
