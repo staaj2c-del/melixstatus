@@ -1,3 +1,5 @@
+let statusMap = {};
+
 function esc(str) {
   if (!str) return '';
   const div = document.createElement('div');
@@ -6,13 +8,27 @@ function esc(str) {
 }
 
 function formatStatus(s) {
+  if (statusMap[s] && statusMap[s].label) return statusMap[s].label;
   const map = {
     operational: 'Operational',
     degraded: 'Degraded Performance',
     outage: 'Major Outage',
-    maintenance: 'Under Maintenance'
+    maintenance: 'Under Maintenance',
+    no_data: 'No data'
   };
-  return map[s] || s;
+  return map[s] || (s || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || s;
+}
+
+function statusColor(s) {
+  if (statusMap[s] && statusMap[s].color) return statusMap[s].color;
+  const map = {
+    operational: '#22C55E',
+    degraded: '#EAB308',
+    outage: '#EF4444',
+    maintenance: '#2DD4E8',
+    no_data: '#d0d4dc'
+  };
+  return map[s] || '#8A8D9B';
 }
 
 function formatIncidentStatus(s) {
@@ -48,12 +64,25 @@ function statusClass(overall) {
   return `is-${overall || 'unknown'}`;
 }
 
+async function loadStatusMap() {
+  try {
+    const list = await Store.getStatuses(false);
+    statusMap = {};
+    list.forEach(s => { statusMap[s.key] = s; });
+  } catch (_) { /* keep defaults */ }
+}
+
 async function loadOverallStatus() {
   try {
     const data = await Store.getOverallStatus();
     const banner = document.getElementById('statusBanner');
     const label = document.getElementById('statusLabel');
     banner.className = `status-banner ${statusClass(data.status)}`;
+    if (data.color && !['operational', 'degraded', 'partial_outage', 'major_outage', 'maintenance'].includes(data.status)) {
+      banner.style.background = data.color;
+    } else {
+      banner.style.background = '';
+    }
     label.textContent = data.label;
     document.title = `Melix Status — ${data.label}`;
   } catch (_) {
@@ -72,11 +101,15 @@ function barLabel(day) {
 function renderUptimeBars(history) {
   return `
     <div class="uptime-bars" role="img" aria-label="90 day uptime history">
-      ${(history || []).map(day => `
-        <div class="uptime-bar ${day.status}"
+      ${(history || []).map(day => {
+        const known = ['operational', 'degraded', 'outage', 'maintenance', 'no_data'].includes(day.status);
+        const style = known ? '' : `style="background:${esc(statusColor(day.status))}"`;
+        return `
+        <div class="uptime-bar ${known ? day.status : 'custom'}"
+             ${style}
              data-tip="${esc(barLabel(day))}"
-             title="${esc(barLabel(day).replace('\n', ' — '))}"></div>
-      `).join('')}
+             title="${esc(barLabel(day).replace('\n', ' — '))}"></div>`;
+      }).join('')}
     </div>
     <div class="uptime-meta">
       <span>90 days ago</span>
@@ -96,20 +129,22 @@ async function loadServices() {
       list.innerHTML = '<div class="empty-state">No services configured yet.</div>';
       return;
     }
-    list.innerHTML = services.map(s => `
+    list.innerHTML = services.map(s => {
+      const known = ['operational', 'degraded', 'outage', 'maintenance'].includes(s.status);
+      const colorStyle = known ? '' : `style="color:${esc(statusColor(s.status))}"`;
+      return `
       <div class="service-row">
         <div class="service-row-top">
           <span class="service-name">
             ${esc(s.name)}
             ${s.description ? `<span class="service-desc">· ${esc(s.description)}</span>` : ''}
           </span>
-          <span class="service-status ${s.status}">${formatStatus(s.status)}</span>
+          <span class="service-status ${known ? s.status : 'custom'}" ${colorStyle}>${formatStatus(s.status)}</span>
         </div>
         ${renderUptimeBars(s.history)}
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
-    // Prefer computed uptime from API when present
     list.querySelectorAll('.service-row').forEach((row, i) => {
       const pct = services[i].uptime;
       if (pct != null) {
@@ -195,7 +230,6 @@ async function loadIncidents() {
   }
 }
 
-// Tooltip for uptime bars
 (function setupTooltip() {
   const tip = document.getElementById('barTooltip');
   if (!tip) return;
@@ -215,6 +249,7 @@ async function loadIncidents() {
 })();
 
 async function refresh() {
+  await loadStatusMap();
   await Promise.all([loadOverallStatus(), loadServices(), loadIncidents()]);
 }
 

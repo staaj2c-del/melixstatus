@@ -1,4 +1,7 @@
 let currentUser = null;
+let statusOptions = [];
+let statusMap = {};
+let lastBotKeyPlain = null;
 
 function esc(str) {
   if (!str) return '';
@@ -22,13 +25,8 @@ function formatClock(iso) {
 }
 
 function formatStatus(s) {
-  const map = {
-    operational: 'Operational',
-    degraded: 'Degraded',
-    outage: 'Outage',
-    maintenance: 'Maintenance'
-  };
-  return map[s] || s;
+  if (statusMap[s] && statusMap[s].label) return statusMap[s].label;
+  return (s || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || s;
 }
 
 function toast(msg, type) {
@@ -57,8 +55,33 @@ function showDash(user) {
   document.getElementById('currentUser').textContent = user.username;
   if (user.role === 'admin') {
     document.getElementById('usersTab').style.display = '';
+    document.getElementById('statusesTab').style.display = '';
+    document.getElementById('integrationsTab').style.display = '';
   }
-  loadServices();
+  loadStatusesCache().then(() => loadServices());
+}
+
+async function loadStatusesCache() {
+  try {
+    statusOptions = await Store.getStatuses(false);
+    statusMap = {};
+    statusOptions.forEach(s => { statusMap[s.key] = s; });
+  } catch (_) {
+    statusOptions = [
+      { key: 'operational', label: 'Operational', color: '#22C55E' },
+      { key: 'degraded', label: 'Degraded', color: '#EAB308' },
+      { key: 'outage', label: 'Outage', color: '#EF4444' },
+      { key: 'maintenance', label: 'Maintenance', color: '#2DD4E8' }
+    ];
+    statusMap = {};
+    statusOptions.forEach(s => { statusMap[s.key] = s; });
+  }
+}
+
+function statusSelectHtml(current, id) {
+  return statusOptions.map(s =>
+    `<option value="${esc(s.key)}" ${s.key === current ? 'selected' : ''}>${esc(s.label)}</option>`
+  ).join('');
 }
 
 // Tabs
@@ -73,6 +96,8 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     if (el) el.classList.add('active');
     if (section === 'services') loadServices();
     if (section === 'incidents') loadIncidents();
+    if (section === 'statuses') loadStatusOptions();
+    if (section === 'integrations') loadIntegrations();
     if (section === 'users') loadUsers();
     if (section === 'log') loadAdminEvents();
   });
@@ -108,30 +133,32 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 // Services
 async function loadServices() {
   try {
+    await loadStatusesCache();
     const services = await Store.getServices();
     const tbody = document.getElementById('servicesTableBody');
     document.getElementById('svcCount').textContent = `(${services.length})`;
-    tbody.innerHTML = services.map(s => `
+    tbody.innerHTML = services.map(s => {
+      const color = (statusMap[s.status] && statusMap[s.status].color) || '#8A8D9B';
+      return `
       <tr>
         <td><strong>${esc(s.name)}</strong></td>
         <td>${esc(s.description || '')}</td>
         <td>
-          <select class="status-select ${s.status}" data-id="${s._id}" onchange="updateServiceStatus('${s._id}', this.value)">
-            <option value="operational" ${s.status === 'operational' ? 'selected' : ''}>Operational</option>
-            <option value="degraded" ${s.status === 'degraded' ? 'selected' : ''}>Degraded</option>
-            <option value="outage" ${s.status === 'outage' ? 'selected' : ''}>Outage</option>
-            <option value="maintenance" ${s.status === 'maintenance' ? 'selected' : ''}>Maintenance</option>
-          </select>
+          <div class="status-cell">
+            <span class="status-dot" style="background:${esc(color)}"></span>
+            <select class="status-select" data-id="${s._id}" onchange="updateServiceStatus('${s._id}', this.value)">
+              ${statusSelectHtml(s.status, s._id)}
+            </select>
+          </div>
         </td>
         <td>${timeAgo(s.updatedAt)}</td>
         <td class="table-actions">
           <button class="btn btn-secondary btn-sm" onclick="editService('${s._id}','${esc(s.name).replace(/'/g, "\\'")}','${esc(s.description || '').replace(/'/g, "\\'")}')">Edit</button>
           ${currentUser && currentUser.role === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteService('${s._id}')">Delete</button>` : ''}
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
-    // Populate incident service multi-select
     const sel = document.getElementById('incServices');
     if (sel) {
       sel.innerHTML = services.map(s =>
@@ -218,11 +245,11 @@ async function loadIncidents() {
         <div class="incident-admin-meta">
           <span class="incident-impact ${esc(inc.impact)}">${esc(inc.impact)}</span>
           Status: <strong>${esc((inc.status || '').replace(/_/g, ' '))}</strong>
+          · ${(inc.serviceNames || []).map(esc).join(', ') || 'No services'}
           · ${timeAgo(inc.startedAt || inc.createdAt)}
-          ${(inc.serviceNames || []).length ? ' · ' + esc(inc.serviceNames.join(', ')) : ''}
         </div>
         <div class="incident-admin-actions">
-          <button class="btn btn-cyan btn-sm" onclick="openIncidentUpdate('${inc._id}','${esc(inc.title).replace(/'/g, "\\'")}','${esc(inc.status)}')">Add Update</button>
+          <button class="btn btn-cyan btn-sm" onclick="openIncidentUpdate('${inc._id}','${esc(inc.title).replace(/'/g, "\\'")}','${esc(inc.status)}')">Post update</button>
           ${!['resolved', 'completed'].includes(inc.status)
             ? `<button class="btn btn-secondary btn-sm" onclick="resolveIncident('${inc._id}')">Resolve</button>`
             : ''}
@@ -262,7 +289,7 @@ document.getElementById('incidentForm').addEventListener('submit', async (e) => 
       message: document.getElementById('incMessage').value || undefined,
       serviceIds
     });
-    toast('Incident created', 'success');
+    toast('Incident created — Discord notified if enabled', 'success');
     incidentModal.classList.remove('open');
     loadIncidents();
   } catch (err) {
@@ -291,7 +318,7 @@ document.getElementById('incidentUpdateForm').addEventListener('submit', async (
       status: document.getElementById('incUpdateStatus').value,
       message: document.getElementById('incUpdateMessage').value
     });
-    toast('Update posted', 'success');
+    toast('Update posted — Discord notified if enabled', 'success');
     incidentUpdateModal.classList.remove('open');
     loadIncidents();
   } catch (err) {
@@ -322,6 +349,205 @@ async function deleteIncident(id) {
     toast(e.message || 'Failed to delete', 'error');
   }
 }
+
+// Status options
+async function loadStatusOptions() {
+  try {
+    const items = await Store.getStatuses(true);
+    statusOptions = items.filter(s => s.enabled);
+    statusMap = {};
+    items.forEach(s => { statusMap[s.key] = s; });
+    document.getElementById('statusOptCount').textContent = `(${items.length})`;
+    const tbody = document.getElementById('statusesTableBody');
+    tbody.innerHTML = items.map(s => `
+      <tr class="${s.enabled ? '' : 'row-disabled'}">
+        <td><span class="status-dot lg" style="background:${esc(s.color)}"></span></td>
+        <td><code>${esc(s.key)}</code></td>
+        <td><strong>${esc(s.label)}</strong>${s.isSystem ? ' <span class="badge">system</span>' : ''}${s.isDefault ? ' <span class="badge badge-green">default</span>' : ''}</td>
+        <td>${esc(s.severity)}</td>
+        <td>${s.uptimeWeight}%</td>
+        <td>${s.enabled ? 'Yes' : 'No'}</td>
+        <td class="table-actions">
+          <button class="btn btn-secondary btn-sm" onclick='editStatus(${JSON.stringify(s)})'>Edit</button>
+          ${!s.isSystem ? `<button class="btn btn-danger btn-sm" onclick="deleteStatusOpt('${s._id}')">Delete</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    toast(e.message || 'Failed to load statuses', 'error');
+  }
+}
+
+const statusModal = document.getElementById('statusModal');
+document.getElementById('addStatusBtn').addEventListener('click', () => {
+  document.getElementById('statusModalTitle').textContent = 'Add Status';
+  document.getElementById('statusId').value = '';
+  document.getElementById('statusKey').value = '';
+  document.getElementById('statusKey').disabled = false;
+  document.getElementById('statusKeyGroup').style.display = '';
+  document.getElementById('statusLabel').value = '';
+  document.getElementById('statusColor').value = '#8A8D9B';
+  document.getElementById('statusSeverity').value = 'warn';
+  document.getElementById('statusUptime').value = '100';
+  statusModal.classList.add('open');
+});
+document.getElementById('cancelStatusBtn').addEventListener('click', () => statusModal.classList.remove('open'));
+statusModal.addEventListener('click', (e) => { if (e.target === statusModal) statusModal.classList.remove('open'); });
+
+function editStatus(s) {
+  document.getElementById('statusModalTitle').textContent = 'Edit Status';
+  document.getElementById('statusId').value = s._id;
+  document.getElementById('statusKey').value = s.key;
+  document.getElementById('statusKey').disabled = true;
+  document.getElementById('statusKeyGroup').style.display = 'none';
+  document.getElementById('statusLabel').value = s.label;
+  document.getElementById('statusColor').value = s.color || '#8A8D9B';
+  document.getElementById('statusSeverity').value = s.severity || 'info';
+  document.getElementById('statusUptime').value = s.uptimeWeight ?? 100;
+  statusModal.classList.add('open');
+}
+
+document.getElementById('statusForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('statusId').value;
+  const body = {
+    label: document.getElementById('statusLabel').value,
+    color: document.getElementById('statusColor').value,
+    severity: document.getElementById('statusSeverity').value,
+    uptimeWeight: Number(document.getElementById('statusUptime').value)
+  };
+  try {
+    if (id) {
+      await Store.updateStatus(id, body);
+      toast('Status updated', 'success');
+    } else {
+      body.key = document.getElementById('statusKey').value || undefined;
+      await Store.createStatus(body);
+      toast('Status created', 'success');
+    }
+    statusModal.classList.remove('open');
+    loadStatusOptions();
+    loadStatusesCache();
+  } catch (err) {
+    toast(err.message || 'Failed to save status', 'error');
+  }
+});
+
+async function deleteStatusOpt(id) {
+  if (!confirm('Delete this status option?')) return;
+  try {
+    await Store.deleteStatus(id);
+    toast('Status deleted', 'success');
+    loadStatusOptions();
+    loadStatusesCache();
+  } catch (e) {
+    toast(e.message || 'Failed to delete', 'error');
+  }
+}
+
+// Integrations
+async function loadIntegrations() {
+  try {
+    const s = await Store.getSettings();
+    document.getElementById('discordEnabled').checked = !!s.discordEnabled;
+    document.getElementById('discordWebhookUrl').value = s.discordWebhookUrl || '';
+    document.getElementById('discordMention').value = s.discordMention || '';
+    document.getElementById('statusPageUrl').value = s.statusPageUrl || '';
+    document.getElementById('botApiKeyEnabled').checked = s.botApiKeyEnabled !== false;
+
+    const display = document.getElementById('botApiKeyDisplay');
+    const copyBtn = document.getElementById('copyBotKeyBtn');
+    if (lastBotKeyPlain) {
+      display.textContent = lastBotKeyPlain;
+      copyBtn.style.display = '';
+      document.getElementById('botKeyHint').textContent = 'Copy and store this key now. It will be masked after you leave this page.';
+    } else if (s.botApiKeySet) {
+      display.textContent = s.botApiKeyMasked || '•••• set';
+      copyBtn.style.display = 'none';
+      document.getElementById('botKeyHint').textContent = 'Key is set. Rotate to get a new full key.';
+    } else {
+      display.textContent = 'Not generated';
+      copyBtn.style.display = 'none';
+    }
+
+    document.getElementById('botEndpointsHelp').textContent =
+`Base: ${typeof API_BASE !== 'undefined' ? API_BASE : 'https://melix-status.vercel.app'}
+
+GET  /api/bot/snapshot          → full status dump
+GET  /api/bot/poll?since=ISO    → changes since timestamp
+GET  /api/bot/overall
+GET  /api/bot/services
+GET  /api/bot/incidents?active=1
+
+Header: X-API-Key: <your-key>
+   or:  Authorization: Bot <your-key>`;
+  } catch (e) {
+    toast(e.message || 'Failed to load settings', 'error');
+  }
+}
+
+document.getElementById('saveDiscordBtn').addEventListener('click', async () => {
+  try {
+    await Store.updateSettings({
+      discordEnabled: document.getElementById('discordEnabled').checked,
+      discordWebhookUrl: document.getElementById('discordWebhookUrl').value.trim(),
+      discordMention: document.getElementById('discordMention').value.trim(),
+      statusPageUrl: document.getElementById('statusPageUrl').value.trim()
+    });
+    toast('Discord settings saved', 'success');
+    loadIntegrations();
+  } catch (e) {
+    toast(e.message || 'Failed to save', 'error');
+  }
+});
+
+document.getElementById('testDiscordBtn').addEventListener('click', async () => {
+  try {
+    await Store.updateSettings({
+      discordEnabled: document.getElementById('discordEnabled').checked,
+      discordWebhookUrl: document.getElementById('discordWebhookUrl').value.trim(),
+      discordMention: document.getElementById('discordMention').value.trim(),
+      statusPageUrl: document.getElementById('statusPageUrl').value.trim()
+    });
+    await Store.testDiscord();
+    toast('Test message sent to Discord', 'success');
+  } catch (e) {
+    toast(e.message || 'Test failed', 'error');
+  }
+});
+
+document.getElementById('saveBotSettingsBtn').addEventListener('click', async () => {
+  try {
+    await Store.updateSettings({
+      botApiKeyEnabled: document.getElementById('botApiKeyEnabled').checked
+    });
+    toast('Bot settings saved', 'success');
+  } catch (e) {
+    toast(e.message || 'Failed to save', 'error');
+  }
+});
+
+document.getElementById('regenBotKeyBtn').addEventListener('click', async () => {
+  if (!confirm('Generate a new bot API key? The old key will stop working immediately.')) return;
+  try {
+    const data = await Store.regenerateBotKey();
+    lastBotKeyPlain = data.botApiKey;
+    toast('New bot API key generated — copy it now', 'success');
+    loadIntegrations();
+  } catch (e) {
+    toast(e.message || 'Failed to generate key', 'error');
+  }
+});
+
+document.getElementById('copyBotKeyBtn').addEventListener('click', async () => {
+  const text = lastBotKeyPlain || document.getElementById('botApiKeyDisplay').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied to clipboard', 'success');
+  } catch (_) {
+    toast('Copy failed — select the key manually', 'error');
+  }
+});
 
 // Users
 async function loadUsers() {

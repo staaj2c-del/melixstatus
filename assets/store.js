@@ -32,6 +32,7 @@ const Store = {
   getEvents() { return this.request('/api/events'); },
   getMe() { return this.request('/api/me'); },
   getIncidents(params = '') { return this.request(`/api/incidents${params}`); },
+  getStatuses(all = false) { return this.request(`/api/statuses${all ? '?all=1' : ''}`); },
 
   updateService(id, body) {
     return this.request(`/api/services/${id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -66,6 +67,27 @@ const Store = {
   },
   deleteIncident(id) {
     return this.request(`/api/incidents/${id}`, { method: 'DELETE' });
+  },
+
+  createStatus(body) {
+    return this.request('/api/statuses', { method: 'POST', body: JSON.stringify(body) });
+  },
+  updateStatus(id, body) {
+    return this.request(`/api/statuses/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  },
+  deleteStatus(id) {
+    return this.request(`/api/statuses/${id}`, { method: 'DELETE' });
+  },
+
+  getSettings() { return this.request('/api/settings'); },
+  updateSettings(body) {
+    return this.request('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
+  },
+  regenerateBotKey() {
+    return this.request('/api/settings/bot-key/regenerate', { method: 'POST', body: '{}' });
+  },
+  testDiscord() {
+    return this.request('/api/settings/discord/test', { method: 'POST', body: '{}' });
   }
 };
 
